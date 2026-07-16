@@ -50,23 +50,30 @@ def _require_request(session: Session, request_id: int) -> FeatureRequest:
     return request
 
 
+def _vote_exists(session: Session, request_id: int, voter_id: str) -> bool:
+    vote = session.scalar(
+        select(Vote).where(Vote.request_id == request_id, Vote.voter_id == voter_id)
+    )
+    return vote is not None
+
+
 def add_vote(session: Session, request_id: int, voter_id: str) -> VoteResult:
     """Register an upvote. Idempotent: voting again is a no-op, not a second vote."""
     request = _require_request(session, request_id)
     if request.author_id == voter_id:
         raise SelfVoteError(request_id)
 
-    already_voted = session.scalar(
-        select(Vote).where(Vote.request_id == request_id, Vote.voter_id == voter_id)
-    )
-    if already_voted is None:
+    if not _vote_exists(session, request_id, voter_id):
         session.add(Vote(request_id=request_id, voter_id=voter_id))
         try:
             session.commit()
         except IntegrityError:
-            # A concurrent request inserted the same vote first; the UNIQUE
-            # constraint held the line, so the end state is still "voted".
+            # Expected only when a concurrent request inserted the same vote first
+            # and the UNIQUE constraint rejected ours. Confirm that's what happened;
+            # re-raise anything else instead of silently reporting success.
             session.rollback()
+            if not _vote_exists(session, request_id, voter_id):
+                raise
 
     return VoteResult(request_id, count_votes(session, request_id), has_voted=True)
 

@@ -32,8 +32,17 @@ RUN uv sync --frozen --no-dev
 COPY backend/ ./backend/
 COPY --from=frontend /app/frontend/dist ./frontend/dist
 
-# Directory for the SQLite file (mount a volume here in production).
-RUN mkdir -p /data
+# Run as a non-root user. gosu lets the entrypoint fix ownership of a
+# (possibly root-owned) mounted data volume before dropping privileges.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends gosu \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --uid 10001 appuser \
+    && mkdir -p /data \
+    && chown appuser:appuser /data
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 8000
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", "--app-dir", "backend", "--host", "0.0.0.0", "--port", "8000"]
