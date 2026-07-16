@@ -24,3 +24,6 @@
   Response: Re-checked git — stably on feat/feature-request-board @ 5dd3496, clean except frontend/.vite/. Gitignored the Vite cache and committed the .gitignore + prompt-log update.
 2026-07-16T01:25:00Z — Prompt: Create a pull request for the session's changes (repo ivancrneto/metacto, branch feat/feature-request-board).
   Response: Committed the pending prompt-log update, pushed the branch to origin, and opened a PR to main summarizing the feature-request-board build (backend + frontend), tests, tooling, and the code-review fixes.
+
+2026-07-16T00:00:00Z — "spin up two parallel agents: 1) replace python datetime with whenever; 2) use a better way than cookies for unique votes (suggested fingerprintjs)."
+  → Explored backend (datetime in schemas.py/models.py; cookie voter identity in deps.py/config.py/voting.py) and frontend (api.ts credentials cookie flow). Launched two parallel worktree-isolated agents: (A) migrate datetime→whenever, (B) replace cookie voter identity with FingerprintJS visitor ID. Plan to merge both branches after they finish.
