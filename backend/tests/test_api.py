@@ -6,14 +6,14 @@ from collections.abc import Callable
 
 from fastapi.testclient import TestClient
 
-from app.config import settings
+from app.main import app
 
 
 def test_full_flow_submit_list_vote_and_rank(
     client_factory: Callable[[], TestClient],
 ) -> None:
     author = client_factory()
-    voter = client_factory()  # a different cookie jar == a different user
+    voter = client_factory()  # a different X-Visitor-Id == a different user
 
     assert author.get("/api/requests").json() == []
 
@@ -79,11 +79,13 @@ def test_unvote_via_api_is_idempotent(client_factory: Callable[[], TestClient]) 
     assert voter.delete(f"/api/requests/{rid}/vote").json()["vote_count"] == 0
 
 
-def test_identity_cookie_is_issued_even_on_error_response(
+def test_missing_visitor_id_header_is_rejected(
     client_factory: Callable[[], TestClient],
 ) -> None:
-    fresh = client_factory()
-    # A brand-new client whose first request errors must still get an identity.
-    resp = fresh.post("/api/requests/9999/vote")
-    assert resp.status_code == 404
-    assert settings.cookie_name in resp.cookies
+    # client_factory activates the get_session override; build a client with no
+    # X-Visitor-Id to confirm the identity requirement is enforced with a 400.
+    client_factory()
+    anon = TestClient(app)
+    resp = anon.post("/api/requests/9999/vote")
+    assert resp.status_code == 400
+    assert resp.json()["detail"] == "Missing visitor identity"

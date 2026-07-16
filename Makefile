@@ -40,7 +40,7 @@ docker-build: ## Build the production Docker image
 	docker build -t feature-request-board .
 
 docker-run: ## Run the production image on :8000
-	docker run --rm -e APP_SECRET_KEY=local-docker-secret -p 8000:8000 feature-request-board
+	docker run --rm -p 8000:8000 feature-request-board
 
 deploy: ## Deploy to Fly.io (requires an authenticated flyctl)
 	flyctl deploy
