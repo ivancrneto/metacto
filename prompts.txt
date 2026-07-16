@@ -1,2 +1,12 @@
 2026-07-16T00:00:00Z — Prompt: Create a CLAUDE.md file in the project root with a Prompt Logging rule (append every prompt to prompts.txt with an ISO 8601 timestamp and a brief summary).
   Response: Created CLAUDE.md containing the Project Rules / Prompt Logging instruction, then created this prompts.txt log with the first entry.
+2026-07-16T00:05:00Z — Prompt: Announced an assignment is coming; asked to use engineering:system-design and engineering:architecture skills to stage a two-persona (ship-fast vs. craft) debate over up to 6 rounds, ending in a final plan to approve.
+  Response: Confirmed the persona/debate setup and skill usage; awaiting the pasted assignment before starting.
+2026-07-16T00:10:00Z — Prompt: Pasted assignment — a Feature Request Board (submit request w/ title+description, list requests, upvote, see vote counts + popularity ranking). Open-ended, production-polish encouraged, ~2 hours scope.
+  Response: Loaded engineering:system-design and engineering:architecture skills; staged the Velocity vs. Craft debate over the trade-offs and produced a final plan for approval.
+2026-07-16T00:20:00Z — Prompt: Approval-fork answers — chose stack "Python FastAPI + React" (overriding the Next.js recommendation) and identity "Cookie anon + unique constraint".
+  Response: Confirmed project is a PyCharm Python 3.13.7 repo with existing .venv; ran a short persona reconciliation on FastAPI+React implications (cross-origin cookies, migrations, single-origin deploy) and produced the revised final plan for approval.
+2026-07-16T00:30:00Z — Prompt: Refinements — use SQLAlchemy (not SQLModel), add uv, and add tooling for code checks, running tests, and making deployments.
+  Response: Locked stack (SQLAlchemy 2.0 + separate Pydantic schemas, uv, Ruff+mypy, pytest, Dockerfile+fly.toml+Makefile+GitHub Actions CI); verified toolchain (uv/node/docker/ruff present); built the full app — FastAPI backend (cookie identity, unique-constraint vote integrity, computed ranking), React+TS frontend (optimistic voting, states), 13 passing tests, all checks green (ruff+mypy strict), verified the UI in-browser and the production Docker image end-to-end. README with trade-offs + deploy tooling included.
+2026-07-16T00:45:00Z — Prompt: "let's commit in parts" — commit the work as a sequence of logical commits.
+  Response: Checked git state, split the work into ordered commits (tooling → backend → tests → frontend → deploy/CI → docs) and committed each part.
