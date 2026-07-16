@@ -1,0 +1,2 @@
+2026-07-16T00:00:00Z — Prompt: Create a CLAUDE.md file in the project root with a Prompt Logging rule (append every prompt to prompts.txt with an ISO 8601 timestamp and a brief summary).
+  Response: Created CLAUDE.md containing the Project Rules / Prompt Logging instruction, then created this prompts.txt log with the first entry.
