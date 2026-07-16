@@ -10,6 +10,10 @@
   Response: Locked stack (SQLAlchemy 2.0 + separate Pydantic schemas, uv, Ruff+mypy, pytest, Dockerfile+fly.toml+Makefile+GitHub Actions CI); verified toolchain (uv/node/docker/ruff present); built the full app — FastAPI backend (cookie identity, unique-constraint vote integrity, computed ranking), React+TS frontend (optimistic voting, states), 13 passing tests, all checks green (ruff+mypy strict), verified the UI in-browser and the production Docker image end-to-end. README with trade-offs + deploy tooling included.
 2026-07-16T00:45:00Z — Prompt: "let's commit in parts" — commit the work as a sequence of logical commits.
   Response: Checked git state, split the work into ordered commits (tooling → backend → tests → frontend → deploy/CI → docs) and committed each part.
+2026-07-16T00:45:00Z — Prompt: Run the backend tests and check code coverage.
+  Response: Merged feat/feature-request-board (which holds the backend) into this branch, ran `uv sync`, then `uv run pytest --cov=app --cov-report=term-missing`. All 13 tests pass; overall coverage 89% (231 stmts, 25 missed). Reported per-module gaps.
+2026-07-16T00:45:00Z — Prompt: Add coverage mainly to the places with date/time logic.
+  Response: Added backend/tests/test_datetime.py (6 tests) targeting the UTC handling: utcnow() is tz-aware UTC; the RequestOut._as_utc validator's naive-stamp AND aware->UTC-convert branches (the latter, the Postgres path, was previously never executed — it lives in a ternary so coverage.py reported 100% while the else-branch was untested); created_at auto-populates on insert; the API emits an explicit UTC offset; and the "new" sort ordering is stable. Suite now 19 passed (was 13); ruff clean.
 2026-07-16T00:55:00Z — Prompt: User is manually reviewing; asked me to run /code-review in parallel.
   Response: Ran the /code-review skill over the branch diff and reported findings.
 2026-07-16T01:05:00Z — Prompt: "let's implement all your findings" — apply every code-review finding.
