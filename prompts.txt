@@ -14,3 +14,7 @@
   Response: Ran the /code-review skill over the branch diff and reported findings.
 2026-07-16T01:05:00Z — Prompt: "let's implement all your findings" — apply every code-review finding.
   Response: Implemented all 6 findings (prod secret guard, page-scoped has_voted query, middleware-based identity cookie surviving errors, non-root Docker via gosu entrypoint, SPA 404 for asset paths, precise IntegrityError handling) + added an un-vote API test; re-ran checks and rebuilt/verified the image.
+2026-07-16T01:15:00Z — Prompt: "Commit the working tree changes with a sensible message."
+  Response: Inspected git (the working dir had transiently been on main mid-review, hence a confusing first read). Once settled on feat/feature-request-board, the only untracked change was Vite's regenerable dep cache (frontend/.vite/); added it to .gitignore instead of committing the cache.
+2026-07-16T01:16:00Z — Prompt: "I moved to the right branch now, check git again."
+  Response: Re-checked git — stably on feat/feature-request-board @ 5dd3496, clean except frontend/.vite/. Gitignored the Vite cache and committed the .gitignore + prompt-log update.
