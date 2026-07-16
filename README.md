@@ -22,7 +22,8 @@ in production.
 
 **Added for a more production-like product**
 - **Vote integrity** — one vote per person per request, enforced by a DB unique
-  constraint; anonymous identity via a signed, http-only cookie. Self-votes are blocked.
+  constraint; anonymous identity via a client-side [FingerprintJS](https://github.com/fingerprintjs/fingerprintjs)
+  browser fingerprint. Self-votes are blocked.
 - **Idempotent voting** — upvote/un-vote toggle that's safe to retry and survives the
   concurrent-vote race.
 - **Two ranking modes** — `Top` (by votes, with a stable tie-break) and `New`.
@@ -45,7 +46,7 @@ in production.
 
 ```
 Browser · React (Vite + TS)          optimistic vote w/ rollback
-   │  dev:  Vite proxies /api → :8000   (single origin → first-party cookie)
+   │  dev:  Vite proxies /api → :8000   (single origin; identity via X-Visitor-Id header)
    │  prod: FastAPI serves the built bundle from the same origin
    ▼
 FastAPI (Uvicorn)
@@ -66,9 +67,9 @@ SQLAlchemy → SQLite / Postgres
   `app/schemas.py` (Pydantic) are deliberately distinct, so the storage shape and the
   HTTP contract can evolve independently.
 - **Same-origin in every environment.** In dev, Vite proxies `/api` to the backend; in
-  prod, FastAPI serves the built React bundle. The identity cookie is always first-party,
-  so `SameSite=Lax` is enough — no cross-site cookie or CORS-with-credentials complexity,
-  and one thing to deploy.
+  prod, FastAPI serves the built React bundle. Voter identity travels in an `X-Visitor-Id`
+  request header (a FingerprintJS `visitorId` computed in the browser), so there's no
+  cross-site cookie or CORS-with-credentials complexity, and one thing to deploy.
 
 ## Project structure
 
@@ -77,7 +78,7 @@ backend/
   app/
     main.py            FastAPI app; serves the SPA in production
     config.py          settings (env-overridable, APP_ prefix)
-    api/               HTTP layer: routes + the cookie-identity dependency
+    api/               HTTP layer: routes + the fingerprint-identity dependency
     core/              framework-free domain: voting.py, ranking.py
     db/                SQLAlchemy base, models, session
     schemas.py         Pydantic request/response models (validation)
@@ -125,7 +126,9 @@ checks plus a frontend type-check and build on every push/PR.
 
 ## API reference
 
-All endpoints are under `/api`. The identity cookie is issued automatically on first request.
+All endpoints are under `/api`. Every request must carry an `X-Visitor-Id` header (the
+browser fingerprint); the frontend attaches it automatically. Requests without it get a
+`400 Missing visitor identity`.
 
 | Method | Path | Body / Query | Description |
 |--------|------|--------------|-------------|
@@ -141,7 +144,7 @@ Interactive docs at `/docs` when the server is running.
 
 | Table | Columns | Notes |
 |-------|---------|-------|
-| `feature_requests` | id, title, description, author_id, created_at | `author_id` = cookie identity → blocks self-votes |
+| `feature_requests` | id, title, description, author_id, created_at | `author_id` = hashed fingerprint → blocks self-votes |
 | `votes` | id, request_id → fr, voter_id, created_at | **`UNIQUE(voter_id, request_id)`** = one-vote invariant |
 
 Vote counts are **computed from the `votes` table** (the source of truth) rather than
@@ -151,20 +154,23 @@ stored in a denormalized counter, so they can never drift out of sync.
 
 | Decision | Choice | Why | Deferred alternative |
 |----------|--------|-----|----------------------|
-| **Identity** | Signed http-only cookie (UUID) | Honest votes without a 45-min auth build; same-origin ⇒ `SameSite=Lax` | Magic-link / OAuth |
+| **Identity** | Client-side FingerprintJS `visitorId` (sha256-hashed server-side) | Honest votes without a 45-min auth build; no cookie/CORS-credentials plumbing | Magic-link / OAuth |
 | **One-vote rule** | DB `UNIQUE` constraint | An invariant, not app logic you can forget; also wins the concurrent-vote race | — |
 | **Vote count** | Computed aggregate | Correct, can't drift; fast at this scale | Tx-maintained counter |
 | **Ranking** | `votes DESC, created_at ASC, id ASC`; isolated in `ranking.py` | Matches the brief, deterministic, and pluggable | Time-decay "trending" score |
 | **Schema mgmt** | `create_all()` on startup | Enough for a take-home | Alembic migrations |
 | **ORM vs schema** | SQLAlchemy models ≠ Pydantic schemas | Storage and HTTP contract evolve independently | — |
-| **Deployment** | FastAPI serves the React build (single origin) | First-party cookies, one deploy target | Split static CDN + API |
+| **Deployment** | FastAPI serves the React build (single origin) | One deploy target, no cross-origin plumbing | Split static CDN + API |
 
-**On identity.** A signed cookie is _spoof-resistant_ (tampering invalidates the
-signature) but it is **not authentication** — a determined user can clear it and vote
-again. That's an acceptable trade for a take-home and is the standard bar for a public
-"upvote without signup" board; the honest next step is real accounts (below). Everything
-downstream (the `voter_id`, the unique constraint) is unchanged when you swap the identity
-source.
+**On identity.** A browser fingerprint is a stable-ish anonymous id, but it is
+**client-provided and therefore spoofable** — a determined user can forge the
+`X-Visitor-Id` header (or clear browser state) and vote again, exactly as they could with
+the old signed cookie. It's anti-abuse friction, not authentication. The server hashes the
+raw fingerprint (sha256) into an opaque, fixed-width token before storing it, so it never
+trusts or persists the raw client string, but it does **not** sign it. That's an acceptable
+trade for a take-home and the standard bar for a public "upvote without signup" board; the
+honest next step is real accounts (below). Everything downstream (the `voter_id`, the unique
+constraint) is unchanged when you swap the identity source.
 
 **On ranking.** Raw vote count means the earliest popular request can dominate forever.
 The ordering lives behind a single function (`app/core/ranking.py`), so a Hacker
@@ -174,7 +180,7 @@ News / Reddit-style time-decay score is a localized change, not a refactor.
 
 - **XSS:** user content is rendered through React (auto-escaped); no `dangerouslySetInnerHTML`.
 - **Input validation:** enforced server-side via Pydantic — the client limits are a UX nicety, not the guard.
-- **Cookies:** `http-only` (no JS access), `SameSite=Lax`, and `Secure` in production (set via `fly.toml`).
+- **Identity:** the client-supplied `X-Visitor-Id` is hashed server-side before use/storage; treated as spoofable friction, not a trust boundary.
 - **SQL:** all access goes through SQLAlchemy's parameterized queries.
 
 ## What I'd do next (at scale)
@@ -198,7 +204,6 @@ The included `Dockerfile` builds the frontend and serves it from FastAPI in one 
 ```bash
 fly apps create feature-request-board
 fly volumes create frb_data --size 1
-fly secrets set APP_SECRET_KEY=$(python -c "import secrets; print(secrets.token_hex(32))")
 fly deploy            # or: make deploy
 ```
 
@@ -212,6 +217,4 @@ All settings are environment variables with the `APP_` prefix (see `.env.example
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `APP_DATABASE_URL` | `sqlite:///./app.db` | SQLAlchemy database URL |
-| `APP_SECRET_KEY` | `dev-insecure-…` | Signs the identity cookie — **set in production** |
-| `APP_COOKIE_SECURE` | `false` | `true` when served over HTTPS |
 | `APP_FRONTEND_DIR` | `frontend/dist` | Built bundle to serve in production |

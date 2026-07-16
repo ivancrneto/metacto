@@ -9,6 +9,7 @@ real database is never touched.
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import Callable, Iterator
 
 import pytest
@@ -60,7 +61,7 @@ def session(session_factory: sessionmaker[Session]) -> Iterator[Session]:
 def client_factory(
     session_factory: sessionmaker[Session],
 ) -> Iterator[Callable[[], TestClient]]:
-    """Yield a factory that builds TestClients; each has its own cookie jar (identity)."""
+    """Yield a factory that builds TestClients; each sends its own X-Visitor-Id (identity)."""
 
     def _override() -> Iterator[Session]:
         with session_factory() as s:
@@ -68,7 +69,9 @@ def client_factory(
 
     app.dependency_overrides[get_session] = _override
     try:
-        yield lambda: TestClient(app)
+        # A fresh fingerprint per client == a distinct voter, replacing what a
+        # per-client cookie jar used to give us.
+        yield lambda: TestClient(app, headers={"X-Visitor-Id": uuid.uuid4().hex})
     finally:
         app.dependency_overrides.clear()
 

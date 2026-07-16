@@ -1,3 +1,4 @@
+import { getVisitorId } from './fingerprint'
 import type { FeatureRequest, SortKey, VoteResult } from './types'
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' }
@@ -17,28 +18,33 @@ async function handle<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>
 }
 
-export function listRequests(sort: SortKey): Promise<FeatureRequest[]> {
-  return fetch(`/api/requests?sort=${sort}`, { credentials: 'include' }).then((res) =>
-    handle<FeatureRequest[]>(res),
-  )
+// Voter identity rides in the X-Visitor-Id header (the browser fingerprint).
+async function idHeaders(extra?: Record<string, string>): Promise<Record<string, string>> {
+  return { 'X-Visitor-Id': await getVisitorId(), ...extra }
 }
 
-export function createRequest(input: {
+export async function listRequests(sort: SortKey): Promise<FeatureRequest[]> {
+  const res = await fetch(`/api/requests?sort=${sort}`, { headers: await idHeaders() })
+  return handle<FeatureRequest[]>(res)
+}
+
+export async function createRequest(input: {
   title: string
   description: string
 }): Promise<FeatureRequest> {
-  return fetch('/api/requests', {
+  const res = await fetch('/api/requests', {
     method: 'POST',
-    headers: JSON_HEADERS,
-    credentials: 'include',
+    headers: await idHeaders(JSON_HEADERS),
     body: JSON.stringify(input),
-  }).then((res) => handle<FeatureRequest>(res))
+  })
+  return handle<FeatureRequest>(res)
 }
 
 // Toggles the caller's vote: DELETE if they've already voted, POST otherwise.
-export function castVote(id: number, currentlyVoted: boolean): Promise<VoteResult> {
-  return fetch(`/api/requests/${id}/vote`, {
+export async function castVote(id: number, currentlyVoted: boolean): Promise<VoteResult> {
+  const res = await fetch(`/api/requests/${id}/vote`, {
     method: currentlyVoted ? 'DELETE' : 'POST',
-    credentials: 'include',
-  }).then((res) => handle<VoteResult>(res))
+    headers: await idHeaders(),
+  })
+  return handle<VoteResult>(res)
 }

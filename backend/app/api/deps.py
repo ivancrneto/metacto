@@ -1,63 +1,35 @@
-"""Anonymous voter identity.
+"""Anonymous voter identity, derived from a client-supplied browser fingerprint.
 
-Assigned by middleware and read via a dependency. Doing the assignment in
-middleware (rather than only in a dependency) means the identity cookie is
-attached to *every* response — including error responses, where a dependency's
-injected Response object would otherwise be discarded.
+The frontend computes a stable FingerprintJS ``visitorId`` in the browser and
+sends it on every request as the ``X-Visitor-Id`` header; that value becomes the
+``voter_id`` used to enforce one-vote-per-voter and to block self-votes.
+
+This identifier is **client-provided and therefore spoofable** — exactly as the
+old signed cookie was. It's anti-abuse friction, not authentication: swap for
+real auth if you need trust. We hash it server-side to a fixed-width, opaque
+token (so we neither trust nor store the raw client string), but we do NOT sign
+it. See README.
 """
 
 from __future__ import annotations
 
-import uuid
+import hashlib
 
-from fastapi import Request, Response
-from itsdangerous import BadSignature, URLSafeSerializer
-from starlette.middleware.base import RequestResponseEndpoint
+from fastapi import HTTPException, Request, status
 
-from app.config import settings
-
-_serializer = URLSafeSerializer(settings.secret_key, salt="voter-id")
-
-
-def _unsign(raw: str) -> str | None:
-    try:
-        value = _serializer.loads(raw)
-    except BadSignature:
-        return None
-    return value if isinstance(value, str) else None
-
-
-async def identity_middleware(request: Request, call_next: RequestResponseEndpoint) -> Response:
-    """Ensure every request carries a stable, signed, http-only identity cookie.
-
-    Same-origin serving (Vite proxy in dev, StaticFiles in prod) means
-    SameSite=Lax is sufficient and cross-site cookie complexity is avoided. This
-    is spoof-resistant (signed) but not authentication — swap for real auth in
-    production. See README.
-    """
-    raw = request.cookies.get(settings.cookie_name)
-    voter_id = _unsign(raw) if raw else None
-    issue_cookie = voter_id is None
-    if voter_id is None:
-        voter_id = uuid.uuid4().hex
-    request.state.voter_id = voter_id
-
-    response = await call_next(request)
-
-    if issue_cookie:
-        response.set_cookie(
-            key=settings.cookie_name,
-            value=_serializer.dumps(voter_id),
-            max_age=settings.cookie_max_age,
-            httponly=True,
-            samesite="lax",
-            secure=settings.cookie_secure,
-            path="/",
-        )
-    return response
+VISITOR_ID_HEADER = "X-Visitor-Id"
 
 
 def get_voter_id(request: Request) -> str:
-    """Return the identity assigned to this request by identity_middleware."""
-    voter_id: str = request.state.voter_id
-    return voter_id
+    """Resolve the voter identity from the X-Visitor-Id header.
+
+    Returns a normalized 64-char hex token (sha256 of the raw fingerprint) — the
+    stable interface consumed by the request handlers, and a clean fit for the
+    ``String(64)`` identity columns. Raises 400 when the header is absent or
+    empty: the frontend always sends it, so a missing value means a non-browser
+    or misbehaving client, not a legitimate first visit.
+    """
+    raw = request.headers.get(VISITOR_ID_HEADER, "").strip()
+    if not raw:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Missing visitor identity")
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()

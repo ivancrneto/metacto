@@ -1,7 +1,8 @@
 """FastAPI application entrypoint.
 
 In production this single process also serves the built React bundle, so the API
-and UI share one origin (first-party SameSite=Lax cookies, one deploy target).
+and UI share one origin (one deploy target). Voter identity rides in the
+X-Visitor-Id header (a client-computed browser fingerprint), not a cookie.
 """
 
 from __future__ import annotations
@@ -14,7 +15,6 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api.deps import identity_middleware
 from app.api.requests import router as requests_router
 from app.config import settings
 from app.db.session import init_db
@@ -27,7 +27,6 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="Feature Request Board", version="0.1.0", lifespan=lifespan)
-app.middleware("http")(identity_middleware)
 app.include_router(requests_router)
 
 

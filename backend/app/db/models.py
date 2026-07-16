@@ -28,7 +28,7 @@ class FeatureRequest(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(String(120))
     description: Mapped[str] = mapped_column(Text)
-    # Anonymous author identity (signed cookie UUID); used to block self-votes.
+    # Anonymous author identity (hashed browser fingerprint); used to block self-votes.
     author_id: Mapped[str] = mapped_column(String(64), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 

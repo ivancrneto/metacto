@@ -145,7 +145,7 @@ export default function App() {
       </section>
 
       <footer className="foot">
-        Anonymous identity is kept in a signed, http-only cookie — one vote per person per request.
+        Anonymous identity comes from a browser fingerprint — one vote per person per request.
       </footer>
     </div>
   )
