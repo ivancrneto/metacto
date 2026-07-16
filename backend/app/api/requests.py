@@ -64,7 +64,18 @@ def list_requests(
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> list[schemas.RequestOut]:
     rows = session.execute(listing_query(sort).limit(limit)).all()
-    voted_ids = set(session.scalars(select(Vote.request_id).where(Vote.voter_id == voter_id)).all())
+    page_ids = [req.id for req, _ in rows]
+    voted_ids = (
+        set(
+            session.scalars(
+                select(Vote.request_id).where(
+                    Vote.voter_id == voter_id, Vote.request_id.in_(page_ids)
+                )
+            ).all()
+        )
+        if page_ids
+        else set()
+    )
     return [
         _to_out(req, vote_count=count, has_voted=req.id in voted_ids, voter_id=voter_id)
         for req, count in rows
