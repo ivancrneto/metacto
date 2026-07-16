@@ -7,16 +7,19 @@ contract, and vice versa.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime
 
 from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from whenever import Instant
 
 from app.db.base import Base
 
 
 def utcnow() -> datetime:
-    return datetime.now(UTC)
+    # whenever owns the "what time is it" logic; we hand SQLAlchemy a stdlib
+    # tz-aware UTC datetime only at the column boundary, where it needs one.
+    return Instant.now().to_stdlib()
 
 
 class FeatureRequest(Base):
