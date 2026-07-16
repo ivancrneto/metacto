@@ -10,3 +10,7 @@
   Response: Locked stack (SQLAlchemy 2.0 + separate Pydantic schemas, uv, Ruff+mypy, pytest, Dockerfile+fly.toml+Makefile+GitHub Actions CI); verified toolchain (uv/node/docker/ruff present); built the full app — FastAPI backend (cookie identity, unique-constraint vote integrity, computed ranking), React+TS frontend (optimistic voting, states), 13 passing tests, all checks green (ruff+mypy strict), verified the UI in-browser and the production Docker image end-to-end. README with trade-offs + deploy tooling included.
 2026-07-16T00:45:00Z — Prompt: "let's commit in parts" — commit the work as a sequence of logical commits.
   Response: Checked git state, split the work into ordered commits (tooling → backend → tests → frontend → deploy/CI → docs) and committed each part.
+2026-07-16T00:55:00Z — Prompt: User is manually reviewing; asked me to run /code-review in parallel.
+  Response: Ran the /code-review skill over the branch diff and reported findings.
+2026-07-16T01:05:00Z — Prompt: "let's implement all your findings" — apply every code-review finding.
+  Response: Implemented all 6 findings (prod secret guard, page-scoped has_voted query, middleware-based identity cookie surviving errors, non-root Docker via gosu entrypoint, SPA 404 for asset paths, precise IntegrityError handling) + added an un-vote API test; re-ran checks and rebuilt/verified the image.
