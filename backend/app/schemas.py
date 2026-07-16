@@ -6,10 +6,11 @@ input never reaches the domain or the database.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, StringConstraints, field_validator
+from whenever import Instant, PlainDateTime
 
 Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=120)]
 Description = Annotated[
@@ -36,9 +37,12 @@ class RequestOut(BaseModel):
     @field_validator("created_at")
     @classmethod
     def _as_utc(cls, value: datetime) -> datetime:
-        # SQLite returns naive datetimes; we always store UTC, so stamp it as UTC
-        # (Postgres returns tz-aware). Either way the client gets an explicit offset.
-        return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
+        # Normalize through whenever, then hand Pydantic a stdlib datetime back.
+        # SQLite returns naive datetimes we always store as UTC, so assume UTC;
+        # Postgres returns tz-aware values, which we convert to UTC. Either way the
+        # client gets an explicit offset.
+        instant = PlainDateTime(value).assume_utc() if value.tzinfo is None else Instant(value)
+        return instant.to_stdlib()
 
 
 class VoteOut(BaseModel):
