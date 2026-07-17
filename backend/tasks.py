@@ -74,8 +74,8 @@ def seed(c: Context) -> None:
 
 @task
 def run(c: Context) -> None:
-    """Run the API locally with autoreload."""
-    c.run(f"{UV} uvicorn app.main:app --reload --port 8000", pty=True)
+    """Run the API locally with autoreload (host port 8010)."""
+    c.run(f"{UV} uvicorn app.main:app --reload --port 8010", pty=True)
 
 
 @task(help={"tag": "Image tag to build (default: latest)"})
