@@ -1,4 +1,7 @@
 FROM node:22-alpine AS build
+# Use the pnpm version pinned in package.json's "packageManager" field, and let
+# corepack fetch it without an interactive prompt — keeps host/container in sync.
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 RUN corepack enable
 WORKDIR /app
 
