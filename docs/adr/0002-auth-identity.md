@@ -1,6 +1,6 @@
 # ADR-0002: Authentication & identity
 
-**Status:** Accepted
+**Status:** Accepted — the DI seam stands; the identity *mechanism* (typed username) is superseded by [ADR-0004](0004-device-fingerprint-identity.md)
 **Date:** 2026-07-17
 **Deciders:** Engineering
 

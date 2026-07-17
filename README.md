@@ -19,7 +19,11 @@ how the system is reasoned about — the interesting decisions are written up as
 - **Can't vote on your own request.**
 - Three ranking modes: **Top** (votes), **New** (recency), **Trending**
   (time-decayed popularity).
-- Live vote counts with optimistic UI updates.
+- Live vote counts with optimistic UI updates; when a vote changes the ranking,
+  the card **animates to its new position** (View Transitions API).
+- Identity is a **device fingerprint** (FingerprintJS) rather than a typed name,
+  for better one-vote-per-user deterrence — see
+  [ADR-0004](docs/adr/0004-device-fingerprint-identity.md).
 
 ## Architecture
 
@@ -106,8 +110,9 @@ Scripts: `pnpm dev | build | preview | typecheck | lint | format | test`.
 
 ## API reference
 
-Identity is passed via the `X-User` header (see
-[ADR-0002](docs/adr/0002-auth-identity.md)).
+Identity is passed via the `X-User` header. The SPA sends a device fingerprint
+as that value (see [ADR-0004](docs/adr/0004-device-fingerprint-identity.md));
+the header seam itself is [ADR-0002](docs/adr/0002-auth-identity.md).
 
 | Method | Path | Body / Query | Success | Errors |
 |--------|------|--------------|---------|--------|
@@ -139,12 +144,15 @@ Full write-ups in [`docs/adr`](docs/adr):
   `top`/`new`/`trending`; default is the obvious votes-desc, trending is
   time-decayed. Makes the recency trade-off a visible control, not a hidden
   formula.
-- **[ADR-0002](docs/adr/0002-auth-identity.md) — Identity:** `X-User`
-  pseudo-identity behind a single `get_current_user` seam; real auth is a
-  one-file swap.
+- **[ADR-0002](docs/adr/0002-auth-identity.md) — Identity seam:** `X-User`
+  behind a single `get_current_user` dependency; real auth is a one-file swap.
 - **[ADR-0003](docs/adr/0003-postgres-vote-count-consistency.md) — Consistency:**
   DB `UNIQUE` constraint for vote integrity + a denormalized `vote_count` updated
   atomically in the same transaction.
+- **[ADR-0004](docs/adr/0004-device-fingerprint-identity.md) — Fingerprint
+  identity:** a FingerprintJS `visitorId` is the identity (better multi-vote
+  deterrence than a typed name); a deterrent, not a guarantee — accuracy/privacy
+  caveats documented.
 
 ## Production considerations
 
@@ -182,7 +190,8 @@ backend/
   tests/          pytest (invariants)
   tasks.py        invoke task runner
 frontend/
-  src/            App, api client, components, timeAgo util (+ test)
+  src/            App, api client, components, identity (fingerprint),
+                  sorting + displayName + timeAgo utils (+ tests)
 docs/adr/         architecture decision records
 docker-compose.yml
 ```
