@@ -176,8 +176,8 @@ What a real deployment needs beyond this exercise, and where it would slot in:
 
 ```
 backend/
-  app/            config, db, models, schemas, deps (identity),
-                  ranking, services (vote logic), routers/
+  app/            config, db, models, schemas, deps (identity), ranking,
+                  repository (data access), services (vote rules), routers/
   migrations/     Alembic (async)
   tests/          pytest (invariants)
   tasks.py        invoke task runner

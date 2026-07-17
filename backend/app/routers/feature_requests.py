@@ -1,13 +1,12 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .. import repository
 from ..db import get_session
 from ..deps import get_current_user, get_optional_user
-from ..models import FeatureRequest, User, Vote
-from ..ranking import apply_sort
+from ..models import FeatureRequest, User
 from ..schemas import (
     FeatureRequestCreate,
     FeatureRequestOut,
@@ -33,9 +32,7 @@ async def create_feature_request(
         author_id=user.id,
         vote_count=0,
     )
-    session.add(fr)
-    await session.commit()
-    await session.refresh(fr)
+    await repository.add_request(session, fr)
     return feature_request_out(fr, has_voted=False)
 
 
@@ -47,23 +44,12 @@ async def list_feature_requests(
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> Page:
-    total = await session.scalar(select(func.count()).select_from(FeatureRequest)) or 0
-
-    stmt = apply_sort(select(FeatureRequest), sort).limit(page_size).offset((page - 1) * page_size)
-    rows = list((await session.scalars(stmt)).all())
+    total = await repository.count_requests(session)
+    rows = await repository.list_requests(session, sort, page_size, (page - 1) * page_size)
 
     voted_ids: set[int] = set()
     if viewer is not None and rows:
-        ids = [r.id for r in rows]
-        voted_ids = set(
-            (
-                await session.scalars(
-                    select(Vote.request_id).where(
-                        Vote.user_id == viewer.id, Vote.request_id.in_(ids)
-                    )
-                )
-            ).all()
-        )
+        voted_ids = await repository.voted_request_ids(session, viewer.id, [r.id for r in rows])
 
     items = [feature_request_out(r, has_voted=r.id in voted_ids) for r in rows]
     return Page(
@@ -81,17 +67,12 @@ async def get_feature_request(
     session: SessionDep,
     viewer: Annotated[User | None, Depends(get_optional_user)],
 ) -> FeatureRequestOut:
-    fr = await session.scalar(select(FeatureRequest).where(FeatureRequest.id == request_id))
+    fr = await repository.get_request(session, request_id)
     if fr is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Feature request not found.")
 
     has_voted = False
     if viewer is not None:
-        voted = await session.scalar(
-            select(func.count())
-            .select_from(Vote)
-            .where(Vote.user_id == viewer.id, Vote.request_id == request_id)
-        )
-        has_voted = bool(voted)
+        has_voted = await repository.has_voted(session, viewer.id, request_id)
 
     return feature_request_out(fr, has_voted=has_voted)

@@ -63,9 +63,7 @@ async def test_sort_trending_weights_recency(client: AsyncClient, db: AsyncSessi
     assert [i["title"] for i in items] == ["New small", "Old popular"]
 
 
-async def test_trending_handles_future_created_at(
-    client: AsyncClient, db: AsyncSession
-) -> None:
+async def test_trending_handles_future_created_at(client: AsyncClient, db: AsyncSession) -> None:
     # A future-dated row makes the trending base negative; without a clamp,
     # Postgres errors on power(negative, fractional) and 500s the whole list.
     author = User(username="author")
