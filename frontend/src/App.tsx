@@ -1,13 +1,19 @@
 import { useCallback, useEffect, useState } from "react";
+import { flushSync } from "react-dom";
 
 import { ApiError, createRequest, listRequests, unvote, upvote } from "./api";
 import { RequestCard } from "./components/RequestCard";
 import { RequestForm } from "./components/RequestForm";
 import { SortTabs } from "./components/SortTabs";
 import { UserBar } from "./components/UserBar";
+import { sortRequests } from "./sorting";
 import type { FeatureRequest, SortMode } from "./types";
 
 const USER_KEY = "feature-board-user";
+
+type DocumentWithVT = Document & {
+  startViewTransition?: (callback: () => void) => void;
+};
 
 export function App() {
   const [user, setUser] = useState<string>(() => localStorage.getItem(USER_KEY) ?? "");
@@ -37,6 +43,17 @@ export function App() {
     void load();
   }, [load]);
 
+  // Commit a new ordering, animating the card movement when the browser supports
+  // the View Transitions API (graceful instant fallback otherwise).
+  const applyRequests = useCallback((next: FeatureRequest[]) => {
+    const doc = document as DocumentWithVT;
+    if (typeof doc.startViewTransition === "function") {
+      doc.startViewTransition(() => flushSync(() => setRequests(next)));
+    } else {
+      setRequests(next);
+    }
+  }, []);
+
   const handleCreate = async (title: string, description: string) => {
     if (!user) {
       setError("Set a username first.");
@@ -56,9 +73,9 @@ export function App() {
       return;
     }
     const snapshot = requests;
-    // Optimistic update for a snappy feel; reconciled with the server response.
-    setRequests((rs) =>
-      rs.map((r) =>
+    // Optimistic update + re-sort so the card moves to its new rank immediately.
+    const optimistic = sortRequests(
+      requests.map((r) =>
         r.id === target.id
           ? {
               ...r,
@@ -67,14 +84,22 @@ export function App() {
             }
           : r,
       ),
+      sort,
     );
+    applyRequests(optimistic);
     try {
       const updated = target.has_voted
         ? await unvote(user, target.id)
         : await upvote(user, target.id);
-      setRequests((rs) => rs.map((r) => (r.id === updated.id ? updated : r)));
+      // Reconcile with the authoritative row and re-sort again.
+      applyRequests(
+        sortRequests(
+          optimistic.map((r) => (r.id === updated.id ? updated : r)),
+          sort,
+        ),
+      );
     } catch (e) {
-      setRequests(snapshot); // rollback
+      applyRequests(snapshot); // rollback
       setError(e instanceof ApiError ? e.message : "Vote failed");
     }
   };

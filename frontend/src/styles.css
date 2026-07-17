@@ -261,3 +261,16 @@ body {
   margin: 0;
   font-size: 0.82rem;
 }
+
+/* View-transition tuning for vote-driven reordering. */
+::view-transition-group(*) {
+  animation-duration: 0.28s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}

@@ -16,7 +16,7 @@ export function RequestCard({ request, currentUser, onToggleVote }: Props) {
       : "Upvote";
 
   return (
-    <li className="card request">
+    <li className="card request" style={{ viewTransitionName: `req-${request.id}` }}>
       <button
         className={`vote ${request.has_voted ? "vote--on" : ""}`}
         onClick={() => onToggleVote(request)}
