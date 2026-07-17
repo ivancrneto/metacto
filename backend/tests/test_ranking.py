@@ -63,6 +63,30 @@ async def test_sort_trending_weights_recency(client: AsyncClient, db: AsyncSessi
     assert [i["title"] for i in items] == ["New small", "Old popular"]
 
 
+async def test_trending_handles_future_created_at(
+    client: AsyncClient, db: AsyncSession
+) -> None:
+    # A future-dated row makes the trending base negative; without a clamp,
+    # Postgres errors on power(negative, fractional) and 500s the whole list.
+    author = User(username="author")
+    db.add(author)
+    await db.flush()
+    db.add(
+        FeatureRequest(
+            title="Future dated",
+            description="x",
+            author_id=author.id,
+            vote_count=1,
+            created_at=datetime.now(UTC) + timedelta(hours=10),
+        )
+    )
+    await db.commit()
+
+    resp = await client.get("/feature-requests?sort=trending")
+    assert resp.status_code == 200
+    assert any(item["title"] == "Future dated" for item in resp.json()["items"])
+
+
 async def test_pagination(client: AsyncClient, create_request: RequestFactory) -> None:
     for i in range(3):
         await create_request("ada", title=f"Feature number {i}")

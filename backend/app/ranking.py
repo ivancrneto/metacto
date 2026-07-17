@@ -21,8 +21,11 @@ def apply_sort(
     if sort is SortMode.trending:
         # Reddit/HN-style decay: recent votes outweigh old ones.
         #   score = votes / (age_hours + 2) ^ gravity
+        # Clamp the base to >= 1 so a future-dated created_at (clock skew, imports)
+        # can't produce a negative base — Postgres errors on power(negative, fractional).
         age_hours = func.extract("epoch", func.now() - FeatureRequest.created_at) / 3600.0
-        score = FeatureRequest.vote_count / func.power(age_hours + 2.0, settings.trending_gravity)
+        base = func.greatest(age_hours + 2.0, 1.0)
+        score = FeatureRequest.vote_count / func.power(base, settings.trending_gravity)
         return stmt.order_by(
             score.desc(), FeatureRequest.created_at.desc(), FeatureRequest.id.desc()
         )
