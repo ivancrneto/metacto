@@ -5,39 +5,39 @@ import { ApiError, createRequest, listRequests, unvote, upvote } from "./api";
 import { RequestCard } from "./components/RequestCard";
 import { RequestForm } from "./components/RequestForm";
 import { SortTabs } from "./components/SortTabs";
-import { UserBar } from "./components/UserBar";
+import { displayName } from "./displayName";
+import { getVisitorId } from "./identity";
 import { sortRequests } from "./sorting";
 import type { FeatureRequest, SortMode } from "./types";
-
-const USER_KEY = "feature-board-user";
 
 type DocumentWithVT = Document & {
   startViewTransition?: (callback: () => void) => void;
 };
 
 export function App() {
-  const [user, setUser] = useState<string>(() => localStorage.getItem(USER_KEY) ?? "");
+  // Identity is the device fingerprint (ADR-0004), resolved once on mount.
+  const [identity, setIdentity] = useState<string | null>(null);
   const [sort, setSort] = useState<SortMode>("top");
   const [requests, setRequests] = useState<FeatureRequest[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem(USER_KEY, user);
-  }, [user]);
+    void getVisitorId().then(setIdentity);
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const page = await listRequests(sort, user || null);
+      const page = await listRequests(sort, identity);
       setRequests(page.items);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load requests");
     } finally {
       setLoading(false);
     }
-  }, [sort, user]);
+  }, [sort, identity]);
 
   useEffect(() => {
     void load();
@@ -55,12 +55,9 @@ export function App() {
   }, []);
 
   const handleCreate = async (title: string, description: string) => {
-    if (!user) {
-      setError("Set a username first.");
-      return;
-    }
+    if (!identity) return;
     try {
-      await createRequest(user, title, description);
+      await createRequest(identity, title, description);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create request");
@@ -68,10 +65,7 @@ export function App() {
   };
 
   const handleToggleVote = async (target: FeatureRequest) => {
-    if (!user) {
-      setError("Set a username first.");
-      return;
-    }
+    if (!identity) return;
     const snapshot = requests;
     // Optimistic update + re-sort so the card moves to its new rank immediately.
     const optimistic = sortRequests(
@@ -89,8 +83,8 @@ export function App() {
     applyRequests(optimistic);
     try {
       const updated = target.has_voted
-        ? await unvote(user, target.id)
-        : await upvote(user, target.id);
+        ? await unvote(identity, target.id)
+        : await upvote(identity, target.id);
       // Reconcile with the authoritative row and re-sort again.
       applyRequests(
         sortRequests(
@@ -108,10 +102,18 @@ export function App() {
     <div className="app">
       <header className="app__header">
         <h1>Feature Requests</h1>
-        <UserBar user={user} onChange={setUser} />
+        <div className="identity">
+          {identity ? (
+            <span>
+              You are <strong>{displayName(identity)}</strong>
+            </span>
+          ) : (
+            <span className="muted">Identifying your device…</span>
+          )}
+        </div>
       </header>
 
-      <RequestForm onSubmit={handleCreate} disabled={!user} />
+      <RequestForm onSubmit={handleCreate} disabled={!identity} />
       <SortTabs sort={sort} onChange={setSort} />
 
       {error && (
@@ -130,7 +132,7 @@ export function App() {
             <RequestCard
               key={r.id}
               request={r}
-              currentUser={user}
+              currentUser={identity ?? ""}
               onToggleVote={handleToggleVote}
             />
           ))}
@@ -138,7 +140,7 @@ export function App() {
       )}
 
       <footer className="app__footer muted">
-        Signed in as <strong>{user || "nobody"}</strong> · sorted by {sort}
+        Signed in as <strong>{identity ? displayName(identity) : "…"}</strong> · sorted by {sort}
       </footer>
     </div>
   );

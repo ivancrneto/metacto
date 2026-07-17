@@ -46,7 +46,7 @@ export function RequestForm({ onSubmit, disabled }: Props) {
         aria-label="Feature description"
       />
       <button className="btn btn--primary" type="submit" disabled={!canSubmit}>
-        {disabled ? "Set a username to post" : submitting ? "Submitting…" : "Submit request"}
+        {disabled ? "Identifying…" : submitting ? "Submitting…" : "Submit request"}
       </button>
     </form>
   );

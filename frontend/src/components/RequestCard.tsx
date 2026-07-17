@@ -1,3 +1,4 @@
+import { displayName } from "../displayName";
 import { timeAgo } from "../format";
 import type { FeatureRequest } from "../types";
 
@@ -35,7 +36,7 @@ export function RequestCard({ request, currentUser, onToggleVote }: Props) {
         <h3 className="request__title">{request.title}</h3>
         <p className="request__desc">{request.description}</p>
         <p className="muted request__meta">
-          by {request.author} · {timeAgo(request.created_at)}
+          by {displayName(request.author)} · {timeAgo(request.created_at)}
         </p>
       </div>
     </li>
