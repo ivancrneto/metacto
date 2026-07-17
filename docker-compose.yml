@@ -1,0 +1,45 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: metacto
+    ports:
+      # Host 5433 avoids colliding with a local/other-project Postgres on 5432.
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/metacto
+      APP_ENV: production
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      # Host 8010 avoids colliding with other local services on 8000.
+      - "8010:8000"
+    command: >
+      sh -c "uv run --no-dev alembic upgrade head &&
+             uv run --no-dev uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  web:
+    build: ./frontend
+    environment:
+      # Baked into the static build at image-build time (see frontend Dockerfile).
+      VITE_API_BASE_URL: http://localhost:8010
+    depends_on:
+      - api
+    ports:
+      - "5173:80"
+
+volumes:
+  pgdata:
