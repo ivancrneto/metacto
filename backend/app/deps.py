@@ -30,7 +30,7 @@ def _normalize(x_user: str | None) -> str | None:
 def _validate(username: str) -> None:
     if not USERNAME_RE.match(username):
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Invalid username; use 1-50 characters from [a-z0-9_-].",
         )
 
